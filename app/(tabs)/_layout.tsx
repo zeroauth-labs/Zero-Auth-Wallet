@@ -30,10 +30,14 @@ export default function TabLayout() {
         },
         tabBarActiveTintColor: '#7aa2f7', // Primary
         tabBarInactiveTintColor: '#565f89', // Muted
-        tabBarShowLabel: false, // Hide labels for clean pill look
+        tabBarShowLabel: true,
         tabBarItemStyle: {
-          height: 70,
-          padding: 0,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '600',
         },
       }}>
       <Tabs.Screen

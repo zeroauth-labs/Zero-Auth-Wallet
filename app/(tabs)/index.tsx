@@ -1,3 +1,4 @@
+import NotificationModal from '@/components/NotificationModal';
 import SessionCard from '@/components/SessionCard';
 import { useAuthStore } from '@/store/auth-store';
 import { useRouter } from 'expo-router';
@@ -9,7 +10,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function DashboardScreen() {
   const router = useRouter();
   const sessions = useAuthStore((state) => state.sessions);
+  const notifications = useAuthStore((state) => state.notifications);
   const [refreshing, setRefreshing] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -21,6 +24,7 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <NotificationModal visible={showNotifications} onClose={() => setShowNotifications(false)} />
       <View className="flex-1 px-4">
         {/* Header */}
         <View className="flex-row justify-between items-center py-4 mb-2">
@@ -28,10 +32,10 @@ export default function DashboardScreen() {
             <Text className="text-primary font-bold text-sm tracking-wider uppercase">Zero Auth</Text>
             <Text className="text-foreground text-2xl font-bold">Dashboard</Text>
           </View>
-          <View className="w-10 h-10 rounded-full bg-card items-center justify-center border border-border">
+          <TouchableOpacity onPress={() => setShowNotifications(true)} className="w-10 h-10 rounded-full bg-card items-center justify-center border border-border">
             <Bell size={20} color="#a9b1d6" />
-            <View className="absolute top-2 right-2 w-2 h-2 rounded-full bg-error" />
-          </View>
+            {notifications.length > 0 && <View className="absolute top-2 right-2 w-2 h-2 rounded-full bg-error" />}
+          </TouchableOpacity>
         </View>
 
         {/* Actions */}

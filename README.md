@@ -9,15 +9,13 @@ Zero Auth is a privacy-first authentication wallet app built with React Native a
 - **Offline Capable**: Credentials stored locally.
 - **Modern UI**: Tokyo Night aesthetic with glassmorphism and smooth animations.
 
-## V2 Features (New)
+## V0.0.3 Features (Refinements)
 
-- **Real Scanner**: Integrated `expo-camera` for QR scanning.
-- **5-Tab Navigation**: Floating Pill layout with Dashboard, History, Scan, Credentials, Settings.
-- **Credentials Wallet**:
-  - Add Credential Wizard (Category -> Issuer -> Verify).
-  - Specific University support (KTU, Mumbai, etc.).
-  - "Revoke" functionality with strict alerts.
-- **My QR Dashboard**: Simulate incoming link requests.
+- **Enhanced Verification**: "Reddish" themed alerts for critical actions like revocation.
+- **Improved UX**: Auto-formatting for Date of Birth inputs (`DD/MM/YYYY`).
+- **Notifications**: System-wide notification center accessible via dashboard.
+- **Strict Logic**: Single credential per type enforcement.
+- **Refined Navigation**: Restored clear labels to the bottom tab bar.
 
 ## Tech Stack
 
@@ -28,7 +26,9 @@ Zero Auth is a privacy-first authentication wallet app built with React Native a
 - **Navigation**: Expo Router (File-based)
 - **Icons**: Lucide React Native
 
-## Getting Started
+## Getting Started (Run with Expo Go)
+
+This project is designed to be run using the **Expo Go** app for the easiest experience.
 
 1. **Install dependencies**
    ```bash
@@ -39,11 +39,12 @@ Zero Auth is a privacy-first authentication wallet app built with React Native a
    ```bash
    npx expo start
    ```
+   *Note: If you have issues, try `npx expo start --tunnel`*
 
-3. **Run on Device/Simulator**
-   - Press `a` for Android Emulator
-   - Press `i` for iOS Simulator
-   - Scan the QR code with Expo Go on your physical device
+3. **Scan & Run**
+   - Download **Expo Go** on your Android or iOS device from the App Store/Play Store.
+   - Scan the QR code shown in your terminal.
+   - The app will bundle and launch on your phone!
 
 ## Project Structure
 
@@ -56,6 +57,6 @@ Zero Auth is a privacy-first authentication wallet app built with React Native a
 
 ## Future Roadmap
 
-- [ ] Integrate `snarkjs` for actual ZK proof generation.
-- [ ] Implement QR code scanning logic with `expo-camera`.
-- [ ] Encrypted local storage for credentials.
+- [ ] **Phase 1 (Backend)**: Node.js Verifier to issue "Challenges".
+- [ ] **Phase 2 (Crypto)**: Implement key generation & signing on mobile.
+- [ ] **Phase 3 (ZK)**: Integrate `snarkjs` for actual Zero-Knowledge Proofs.

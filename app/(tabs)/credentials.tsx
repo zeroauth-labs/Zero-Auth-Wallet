@@ -1,34 +1,19 @@
+import CustomAlert from '@/components/CustomAlert';
 import { Credential, useAuthStore } from '@/store/auth-store';
 import clsx from 'clsx';
 import { useRouter } from 'expo-router';
 import { BadgeCheck, FolderLock, GraduationCap, Landmark, Plus, Trash2 } from 'lucide-react-native';
-import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-function CredentialCard({ credential }: { credential: Credential }) {
-    const removeCredential = useAuthStore((state) => state.removeCredential); // Need to add this action to store
-
+function CredentialCard({ credential, onRevokeRequest }: { credential: Credential, onRevokeRequest: (id: string) => void }) {
     // Logic for Dynamic Icons
     const isUniversity = credential.type === 'Student ID';
     const Icon = isUniversity ? GraduationCap : Landmark;
     const bgClass = isUniversity ? 'bg-secondary/10 border-secondary/30' : 'bg-primary/10 border-primary/30';
     const iconColor = isUniversity ? '#bb9af7' : '#7aa2f7';
     const displayType = isUniversity ? 'University ID' : credential.type;
-
-    const handleRemove = () => {
-        Alert.alert(
-            "Revoke Credential?",
-            "Removing this credential will deactivate all active Zero-Knowledge circuits associated with it. This action cannot be undone.",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Revoke",
-                    style: "destructive",
-                    onPress: () => removeCredential(credential.id)
-                }
-            ]
-        );
-    };
 
     return (
         <View className={clsx("p-5 rounded-2xl border mb-4 relative overflow-hidden", bgClass)}>
@@ -65,7 +50,7 @@ function CredentialCard({ credential }: { credential: Credential }) {
 
             {/* Actions */}
             <View className="flex-row justify-end border-t border-border/10 pt-4">
-                <TouchableOpacity onPress={handleRemove} className="flex-row items-center gap-2 bg-black/20 px-3 py-2 rounded-lg">
+                <TouchableOpacity onPress={() => onRevokeRequest(credential.id)} className="flex-row items-center gap-2 bg-black/20 px-3 py-2 rounded-lg">
                     <Trash2 size={14} color="#f7768e" />
                     <Text className="text-error text-xs font-bold">Revoke</Text>
                 </TouchableOpacity>
@@ -75,8 +60,16 @@ function CredentialCard({ credential }: { credential: Credential }) {
 }
 
 export default function CredentialsScreen() {
-    const credentials = useAuthStore((state) => state.credentials);
+    const { credentials, removeCredential } = useAuthStore();
     const router = useRouter();
+    const [revokeId, setRevokeId] = useState<string | null>(null);
+
+    const handleConfirmRevoke = () => {
+        if (revokeId) {
+            removeCredential(revokeId);
+            setRevokeId(null);
+        }
+    };
 
     return (
         <SafeAreaView className="flex-1 bg-background" edges={['top']}>
@@ -97,7 +90,11 @@ export default function CredentialsScreen() {
                 <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
                     {credentials.length > 0 ? (
                         credentials.map((cred) => (
-                            <CredentialCard key={cred.id} credential={cred} />
+                            <CredentialCard
+                                key={cred.id}
+                                credential={cred}
+                                onRevokeRequest={setRevokeId}
+                            />
                         ))
                     ) : (
                         <View className="items-center justify-center py-20">
@@ -115,6 +112,16 @@ export default function CredentialsScreen() {
                     )}
                 </ScrollView>
             </View>
+
+            <CustomAlert
+                visible={!!revokeId}
+                title="Revoke Credential?"
+                message="Removing this credential will deactivate all active Zero-Knowledge circuits associated with it. This action cannot be undone."
+                confirmText="Revoke"
+                cancelText="Cancel"
+                onConfirm={handleConfirmRevoke}
+                onCancel={() => setRevokeId(null)}
+            />
         </SafeAreaView>
     );
 }

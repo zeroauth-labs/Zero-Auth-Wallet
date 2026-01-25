@@ -11,7 +11,19 @@ export default function CredentialForm() {
     const [idNumber, setIdNumber] = useState('');
     const [dob, setDob] = useState('');
 
-    const canSubmit = idNumber.length > 3 && dob.length > 3;
+    const handleDobChange = (text: string) => {
+        const cleaned = text.replace(/[^0-9]/g, '');
+        let formatted = cleaned;
+        if (cleaned.length > 2) {
+            formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
+        }
+        if (cleaned.length > 4) {
+            formatted = formatted.slice(0, 5) + '/' + cleaned.slice(4, 8);
+        }
+        setDob(formatted.slice(0, 10));
+    };
+
+    const canSubmit = idNumber.length > 3 && dob.length === 10;
 
     const handleSubmit = () => {
         router.push({
@@ -56,7 +68,9 @@ export default function CredentialForm() {
                             placeholder="DD/MM/YYYY"
                             placeholderTextColor="#565f89"
                             value={dob}
-                            onChangeText={setDob}
+                            onChangeText={handleDobChange}
+                            keyboardType="numeric"
+                            maxLength={10}
                         />
                     </View>
 
