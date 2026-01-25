@@ -1,11 +1,13 @@
 import SessionCard from '@/components/SessionCard';
 import { useAuthStore } from '@/store/auth-store';
-import { Bell } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { Bell, QrCode } from 'lucide-react-native';
 import { useState } from 'react';
-import { RefreshControl, ScrollView, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardScreen() {
+  const router = useRouter();
   const sessions = useAuthStore((state) => state.sessions);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -32,16 +34,18 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Stats Summary */}
+        {/* Actions */}
         <View className="flex-row gap-3 mb-6">
-          <View className="flex-1 bg-card p-3 rounded-xl border border-border">
-            <Text className="text-[#565f89] text-xs font-bold uppercase">Active</Text>
-            <Text className="text-foreground text-2xl font-bold">{sessions.length}</Text>
-          </View>
-          <View className="flex-1 bg-card p-3 rounded-xl border border-border">
-            <Text className="text-[#565f89] text-xs font-bold uppercase">Protected</Text>
-            <Text className="text-success text-2xl font-bold">100%</Text>
-          </View>
+          <TouchableOpacity
+            onPress={() => router.push('/my-qr')}
+            className="flex-1 bg-primary/10 border border-primary/30 p-4 rounded-xl items-center justify-center flex-row gap-3 active:bg-primary/20"
+          >
+            <QrCode size={32} color="#7aa2f7" />
+            <View>
+              <Text className="text-foreground font-bold text-lg">My QR Code</Text>
+              <Text className="text-primary text-xs">Show Zero ID</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         <Text className="text-foreground text-lg font-bold mb-3">Active Sessions</Text>

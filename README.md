@@ -9,6 +9,16 @@ Zero Auth is a privacy-first authentication wallet app built with React Native a
 - **Offline Capable**: Credentials stored locally.
 - **Modern UI**: Tokyo Night aesthetic with glassmorphism and smooth animations.
 
+## V2 Features (New)
+
+- **Real Scanner**: Integrated `expo-camera` for QR scanning.
+- **5-Tab Navigation**: Floating Pill layout with Dashboard, History, Scan, Credentials, Settings.
+- **Credentials Wallet**:
+  - Add Credential Wizard (Category -> Issuer -> Verify).
+  - Specific University support (KTU, Mumbai, etc.).
+  - "Revoke" functionality with strict alerts.
+- **My QR Dashboard**: Simulate incoming link requests.
+
 ## Tech Stack
 
 - **Framework**: React Native (Expo SDK 50+)

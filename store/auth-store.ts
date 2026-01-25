@@ -31,6 +31,7 @@ export interface AuthState {
     addSession: (session: Omit<Session, 'id' | 'startTime' | 'status'>) => void;
     terminateSession: (id: string) => void;
     addCredential: (credential: Credential) => void;
+    removeCredential: (id: string) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -112,5 +113,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     addCredential: (credential) => set((state) => ({
         credentials: [...state.credentials, credential]
+    })),
+
+    removeCredential: (id) => set((state) => ({
+        credentials: state.credentials.filter(c => c.id !== id)
     })),
 }));

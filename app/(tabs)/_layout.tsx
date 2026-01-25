@@ -1,8 +1,8 @@
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Tabs } from 'expo-router';
-import { History, LayoutDashboard, ScanLine, WalletCards } from 'lucide-react-native';
+import { History, LayoutDashboard, ScanLine, Settings, WalletCards } from 'lucide-react-native';
 import React from 'react';
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -13,17 +13,27 @@ export default function TabLayout() {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: '#1a1b26', // Tokyo Night Background
-          borderTopColor: '#16161e',
-          height: Platform.OS === 'ios' ? 88 : 70,
-          paddingBottom: Platform.OS === 'ios' ? 20 : 10,
-          paddingTop: 10,
+          borderTopWidth: 0,
+          position: 'absolute',
+          bottom: 20,
+          left: 20,
+          right: 20,
+          height: 70,
+          borderRadius: 35,
+          paddingBottom: 0,
+          paddingTop: 0,
+          elevation: 5,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 5,
         },
-        tabBarActiveTintColor: '#7aa2f7',
-        tabBarInactiveTintColor: '#565f89',
-        tabBarShowLabel: true,
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '500',
+        tabBarActiveTintColor: '#7aa2f7', // Primary
+        tabBarInactiveTintColor: '#565f89', // Muted
+        tabBarShowLabel: false, // Hide labels for clean pill look
+        tabBarItemStyle: {
+          height: 70,
+          padding: 0,
         },
       }}>
       <Tabs.Screen
@@ -45,13 +55,13 @@ export default function TabLayout() {
         options={{
           title: 'Scan',
           tabBarIcon: ({ color, focused }) => (
-            <View className="items-center justify-center -mt-6">
+            <View className="items-center justify-center -mt-10">
               <View className={`w-16 h-16 rounded-full items-center justify-center border-4 border-[#1a1b26] ${focused ? 'bg-primary shadow-lg shadow-primary/50' : 'bg-[#16161e]'}`}>
                 <ScanLine size={28} color={focused ? '#1a1b26' : '#7aa2f7'} />
               </View>
             </View>
           ),
-          tabBarLabel: () => null, // Hide label for custom button
+          tabBarLabel: () => null,
         }}
       />
       <Tabs.Screen
@@ -59,6 +69,13 @@ export default function TabLayout() {
         options={{
           title: 'Credentials',
           tabBarIcon: ({ color }) => <WalletCards size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
         }}
       />
     </Tabs>
