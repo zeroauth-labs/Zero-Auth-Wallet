@@ -1,5 +1,5 @@
-# Zero Auth
-
+# Zero Auth Wallet
+# The Mobile App part of the Zero Auth Project
 Zero Auth is a privacy-first authentication wallet app built with React Native and Expo. It allows users to verify attributes (like age or student status) using zero-knowledge proofs without revealing sensitive personal information.
 
 ## Features
