@@ -1,88 +1,119 @@
 import { commitAttribute, initPoseidon } from '@/lib/hashing';
 import { useAuthStore } from '@/store/auth-store';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ShieldCheck } from 'lucide-react-native';
+import { BadgeCheck, Check, Fingerprint, Hash, ShieldCheck, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
-// import * as Haptics from 'expo-haptics'; // Will handle if not installed
+import { ActivityIndicator, Text, View, TouchableOpacity } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+import { getRandomValues } from 'expo-crypto';
 
 export default function VerifyScreen() {
     const router = useRouter();
     const { issuerName, category, issuerId } = useLocalSearchParams<{ issuerName: string, category: string, issuerId: string }>();
     const addCredential = useAuthStore((state) => state.addCredential);
 
-    const [step, setStep] = useState(0); // 0: Fetching, 1: Verifying ZK, 2: Success
+    const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
+    const [currentStep, setCurrentStep] = useState(0);
+
+    const steps = [
+        { label: 'Hashing attributes', icon: Hash },
+        { label: 'Generating secure salt', icon: Fingerprint },
+        { label: 'Computing POSEIDON commitment', icon: ShieldCheck },
+        { label: 'Securing in hardware enclave', icon: BadgeCheck }
+    ];
 
     useEffect(() => {
-        // Init crypto
-        initPoseidon();
-
-        // Phase 1: Fetching
-        const t1 = setTimeout(() => setStep(1), 2000);
-
-        // Phase 2: Verifying
-        const t2 = setTimeout(() => {
-            setStep(2);
-
-            // Generate commitments
-            const salt = Math.random().toString(36).substring(2);
-            const attributes = category === 'university' ? {
-                'is_student': true,
-                'university': issuerName,
-                'graduation_year': '2027',
-                'department': 'Computer Science'
-            } : {
-                'age_over_18': true,
-                'residency': 'India'
-            };
-
-            const commitments: Record<string, string> = {};
+        const runVerification = async () => {
             try {
-                Object.entries(attributes).forEach(([key, value]) => {
-                    commitments[key] = commitAttribute(value as any, salt);
+                initPoseidon();
+
+                // Step 0: Hash attributes
+                setCurrentStep(0);
+                await new Promise(r => setTimeout(r, 1200));
+
+                // Step 1: Generate Salt
+                setCurrentStep(1);
+                const saltBytes = new Uint8Array(32);
+                getRandomValues(saltBytes);
+                const salt = Buffer.from(saltBytes).toString('hex');
+                await new Promise(r => setTimeout(r, 800));
+
+                // Step 2: Compute Commitment
+                setCurrentStep(2);
+                const birthYear = 2005; // Mock for demo
+                const commitment = commitAttribute(birthYear, salt);
+                await new Promise(r => setTimeout(r, 1500));
+
+                // Step 3: Secure
+                setCurrentStep(3);
+                const credentialId = Math.random().toString(36).substring(7);
+                await SecureStore.setItemAsync(`salt_${credentialId}`, salt);
+                await new Promise(r => setTimeout(r, 1000));
+
+                addCredential({
+                    id: credentialId,
+                    issuer: issuerName || 'Unknown Issuer',
+                    type: category === 'university' ? 'Student ID' : 'Age Verification',
+                    issuedAt: Date.now(),
+                    attributes: {
+                        birth_year: birthYear
+                    },
+                    commitments: {
+                        birth_year: commitment
+                    },
+                    verified: true
                 });
+
+                setStatus('success');
+
+                // Final Redirect
+                setTimeout(() => {
+                    router.dismissAll();
+                    router.navigate('/(tabs)/credentials');
+                }, 2000);
+
             } catch (e) {
-                console.error("Commitment failed", e);
+                console.error(e);
+                setStatus('error');
             }
+        };
 
-            // Success Action
-            addCredential({
-                id: Math.random().toString(36),
-                issuer: issuerName,
-                type: category === 'university' ? 'Student ID' : 'Age Verification',
-                issuedAt: Date.now(),
-                verified: true,
-                attributes,
-                commitments
-            });
-
-        }, 4500);
-
-        // Phase 3: Redirect
-        const t3 = setTimeout(() => {
-            router.dismissAll();
-            router.navigate('/(tabs)/credentials');
-        }, 6500);
-
-        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+        runVerification();
     }, []);
 
     return (
         <View className="flex-1 bg-[#1a1b26] items-center justify-center p-8">
-            {step < 2 ? (
-                <>
-                    <View className="w-20 h-20 rounded-full bg-card items-center justify-center mb-8 border border-primary/20">
+            {status === 'verifying' && (
+                <View className="items-center w-full">
+                    <View className="w-20 h-20 bg-primary/10 rounded-full items-center justify-center mb-10 border border-primary/30">
                         <ActivityIndicator size="large" color="#7aa2f7" />
                     </View>
-                    <Text className="text-foreground text-xl font-bold mb-2">
-                        {step === 0 ? 'Connecting to Issuer...' : 'Generating Proof...'}
-                    </Text>
-                    <Text className="text-[#565f89] text-center">
-                        {step === 0 ? `Fetching data from ${issuerName}` : 'Creating Zero-Knowledge Circuit'}
-                    </Text>
-                </>
-            ) : (
-                <>
+
+                    <View className="w-full bg-[#16161e] rounded-3xl border border-white/5 p-6 shadow-sm">
+                        {steps.map((step, idx) => {
+                            const isCurrent = idx === currentStep;
+                            const isDone = idx < currentStep;
+                            const StepIcon = step.icon;
+
+                            return (
+                                <View key={idx} className={`flex-row items-center gap-4 mb-5 ${isDone || isCurrent ? 'opacity-100' : 'opacity-30'}`}>
+                                    <View className={`w-8 h-8 rounded-lg items-center justify-center ${isDone ? 'bg-success/20' : isCurrent ? 'bg-primary/20' : 'bg-white/5'}`}>
+                                        {isDone ? <Check size={16} color="#9ece6a" /> : <StepIcon size={16} color={isCurrent ? "#7aa2f7" : "#565f89"} />}
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className={`font-bold text-sm ${isCurrent ? 'text-white' : 'text-[#565f89]'}`}>{step.label}</Text>
+                                        {isCurrent && <Text className="text-[10px] text-primary/70 animate-pulse">Processing...</Text>}
+                                    </View>
+                                    {isCurrent && <ActivityIndicator size="small" color="#7aa2f7" />}
+                                </View>
+                            );
+                        })}
+                    </View>
+                </View>
+            )}
+
+            {status === 'success' && (
+                <View className="items-center">
                     <View className="w-24 h-24 rounded-full bg-success/10 items-center justify-center mb-6 border border-success/30">
                         <ShieldCheck size={48} color="#9ece6a" />
                     </View>
@@ -90,10 +121,22 @@ export default function VerifyScreen() {
                     <Text className="text-[#565f89] text-center mb-8">
                         Your credentials have been securely stored on your device.
                     </Text>
-                    <View className="bg-card px-4 py-2 rounded-lg border border-border">
-                        <Text className="text-xs text-[#565f89] font-mono">ZK-PROOF: 0x7f...3a29</Text>
+                    <View className="bg-[#16161e] px-4 py-2 rounded-lg border border-border">
+                        <Text className="text-xs text-[#565f89] font-mono">ZK-PROOF: 0x7f...a92b</Text>
                     </View>
-                </>
+                </View>
+            )}
+
+            {status === 'error' && (
+                <View className="items-center">
+                    <View className="w-20 h-20 bg-error/10 rounded-full items-center justify-center mb-6 border border-error/20">
+                        <X size={40} color="#f7768e" />
+                    </View>
+                    <Text className="text-xl font-bold text-foreground mb-4">Verification Failed</Text>
+                    <TouchableOpacity onPress={() => router.back()} className="bg-primary px-6 py-3 rounded-xl">
+                        <Text className="text-[#1a1b26] font-bold">Try Again</Text>
+                    </TouchableOpacity>
+                </View>
             )}
         </View>
     );

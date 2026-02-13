@@ -31,13 +31,6 @@ export async function generateAndStoreIdentity(): Promise<{ publicKey: Uint8Arra
 
     const did = deriveDID(publicKey);
 
-    // SECURITY WARNING: LOGGING KEYS FOR DEV PURPOSES ONLY
-    console.log('\n--- 🔐 ZERO AUTH NEW WALLET 🔐 ---');
-    console.log('DID:', did);
-    console.log('Public Key (Hex):', bytesToHex(publicKey));
-    console.log('Private Key (Hex):', bytesToHex(privateKey));
-    console.log('----------------------------------\n');
-
     // 4. Return Public Info
     return {
         publicKey,

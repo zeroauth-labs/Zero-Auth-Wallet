@@ -53,6 +53,7 @@ export interface AuthState {
     removeCredential: (id: string) => void;
     addNotification: (title: string, message: string) => void;
     clearNotifications: () => void;
+    clearHistory: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -148,6 +149,7 @@ export const useAuthStore = create<AuthState>()(
             })),
 
             clearNotifications: () => set({ notifications: [] }),
+            clearHistory: () => set({ history: [] }),
         }),
         {
             name: 'zero-auth-store',

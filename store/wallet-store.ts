@@ -12,6 +12,7 @@ interface WalletState {
     checkInitialization: () => Promise<boolean>;
     initializeWallet: () => Promise<void>;
     resetWallet: () => Promise<void>;
+    getRawPrivateKey: () => Promise<string | null>;
 }
 
 export const useWalletStore = create<WalletState>((set) => ({
@@ -62,5 +63,9 @@ export const useWalletStore = create<WalletState>((set) => ({
     resetWallet: async () => {
         await purgeWallet();
         set({ isInitialized: false, did: null, publicKeyHex: null });
+    },
+    getRawPrivateKey: async () => {
+        const pk = await require('expo-secure-store').getItemAsync('privateKey');
+        return pk;
     }
 }));

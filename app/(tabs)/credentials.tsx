@@ -6,6 +6,7 @@ import { BadgeCheck, FolderLock, GraduationCap, Landmark, Plus, Trash2 } from 'l
 import { useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as SecureStore from 'expo-secure-store';
 
 function CredentialCard({ credential, onRevokeRequest }: { credential: Credential, onRevokeRequest: (id: string) => void }) {
     // Logic for Dynamic Icons
@@ -64,8 +65,14 @@ export default function CredentialsScreen() {
     const router = useRouter();
     const [revokeId, setRevokeId] = useState<string | null>(null);
 
-    const handleConfirmRevoke = () => {
+    const handleConfirmRevoke = async () => {
         if (revokeId) {
+            try {
+                // Cleanup salt
+                await SecureStore.deleteItemAsync(`salt_${revokeId}`);
+            } catch (e) {
+                console.warn("Failed to delete salt for credential:", revokeId);
+            }
             removeCredential(revokeId);
             setRevokeId(null);
         }

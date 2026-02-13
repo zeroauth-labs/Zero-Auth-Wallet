@@ -1,14 +1,26 @@
 import { useWalletStore } from '@/store/wallet-store';
+import { useAuthStore } from '@/store/auth-store';
 import { useRouter } from 'expo-router';
-import { Info, RefreshCw, Smartphone, Trash2 } from 'lucide-react-native';
+import { Info, RefreshCw, Smartphone, Trash2, Calendar } from 'lucide-react-native';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { Copy, ShieldCheck, ShieldX } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
 
 export default function SettingsScreen() {
     const did = useWalletStore((state) => state.did);
     const publicKeyHex = useWalletStore((state) => state.publicKeyHex);
+    const [biometricStatus, setBiometricStatus] = useState<'loading' | 'available' | 'unavailable'>('loading');
     const resetWallet = useWalletStore((state) => state.resetWallet);
     const router = useRouter();
+
+    useEffect(() => {
+        LocalAuthentication.hasHardwareAsync().then(hasHardware => {
+            setBiometricStatus(hasHardware ? 'available' : 'unavailable');
+        });
+    }, []);
 
     const handleReset = () => {
         Alert.alert(
@@ -52,19 +64,91 @@ export default function SettingsScreen() {
                     </View>
 
                     <View className="mb-4">
-                        <Text className="text-xs font-bold text-muted-foreground uppercase mb-1">DID (Decentralized ID)</Text>
+                        <View className="flex-row justify-between items-end mb-1">
+                            <Text className="text-xs font-bold text-muted-foreground uppercase">DID (Decentralized ID)</Text>
+                            <TouchableOpacity onPress={() => {
+                                Clipboard.setStringAsync(did || '');
+                                Alert.alert("Copied", "DID copied to clipboard");
+                            }}>
+                                <Copy size={12} color="#7aa2f7" />
+                            </TouchableOpacity>
+                        </View>
                         <Text className="font-mono text-xs text-[#7aa2f7] bg-black/20 p-2 rounded border border-white/5">
                             {did || 'Not initialized'}
                         </Text>
                     </View>
 
                     <View>
-                        <Text className="text-xs font-bold text-muted-foreground uppercase mb-1">Public Key Fingerprint</Text>
+                        <View className="flex-row justify-between items-end mb-1">
+                            <Text className="text-xs font-bold text-muted-foreground uppercase">Public Key Fingerprint</Text>
+                            <TouchableOpacity onPress={() => {
+                                Clipboard.setStringAsync(publicKeyHex || '');
+                                Alert.alert("Copied", "Public Key copied to clipboard");
+                            }}>
+                                <Copy size={12} color="#7aa2f7" />
+                            </TouchableOpacity>
+                        </View>
                         <Text className="font-mono text-xs text-[#7aa2f7] bg-black/20 p-2 rounded border border-white/5" numberOfLines={1} ellipsizeMode="middle">
                             {publicKeyHex || 'Loading...'}
                         </Text>
                     </View>
+
+                    <View className="mt-4 pt-4 border-t border-white/5">
+                        <Text className="text-xs font-bold text-muted-foreground uppercase mb-1">Security Hardware</Text>
+                        <View className="flex-row items-center gap-2 bg-black/20 p-2 rounded border border-white/5">
+                            {biometricStatus === 'available' ? (
+                                <>
+                                    <ShieldCheck size={14} color="#9ece6a" />
+                                    <Text className="text-success text-xs font-bold">Biometrics Supported</Text>
+                                </>
+                            ) : biometricStatus === 'unavailable' ? (
+                                <>
+                                    <ShieldX size={14} color="#f7768e" />
+                                    <Text className="text-error text-xs font-bold">Biometrics Unavailable</Text>
+                                </>
+                            ) : (
+                                <Text className="text-muted-foreground text-xs">Checking...</Text>
+                            )}
+                        </View>
+                    </View>
                 </View>
+
+                {/* Secret Key Backup */}
+                <Text className="text-sm font-bold text-muted-foreground uppercase mb-3 px-1">Security</Text>
+
+                <TouchableOpacity
+                    onPress={async () => {
+                        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+                        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+                        if (hasHardware && isEnrolled) {
+                            const auth = await LocalAuthentication.authenticateAsync({
+                                promptMessage: 'Authenticate to view Secret Key',
+                            });
+                            if (!auth.success) return;
+                        }
+
+                        // Use Store to get private key (it's in SecureStore)
+                        const pk = await useWalletStore.getState().getRawPrivateKey();
+                        if (pk) {
+                            Alert.alert("Secret Key", pk, [
+                                { text: "Copy", onPress: () => Clipboard.setStringAsync(pk) },
+                                { text: "Close", style: "cancel" }
+                            ]);
+                        } else {
+                            Alert.alert("Error", "Could not retrieve key");
+                        }
+                    }}
+                    className="bg-card p-4 rounded-xl border border-white/5 flex-row items-center gap-4 mb-6 active:bg-white/5"
+                >
+                    <View className="w-10 h-10 bg-primary/10 rounded-full items-center justify-center">
+                        <ShieldCheck size={20} color="#7aa2f7" />
+                    </View>
+                    <View className="flex-1">
+                        <Text className="text-foreground font-bold">Backup Identity</Text>
+                        <Text className="text-muted-foreground text-xs">View Secret Recovery Key</Text>
+                    </View>
+                </TouchableOpacity>
 
                 {/* Actions */}
                 <Text className="text-sm font-bold text-muted-foreground uppercase mb-3 px-1">Actions</Text>
@@ -79,6 +163,24 @@ export default function SettingsScreen() {
                     <View className="flex-1">
                         <Text className="text-foreground font-bold">Reset Wallet</Text>
                         <Text className="text-muted-foreground text-xs">Wipe keys and start fresh</Text>
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    onPress={() => {
+                        Alert.alert("Clear History", "Are you sure you want to clear your verification history?", [
+                            { text: "Cancel", style: "cancel" },
+                            { text: "Clear", style: "destructive", onPress: () => useAuthStore.getState().clearHistory() }
+                        ]);
+                    }}
+                    className="bg-card p-4 rounded-xl border border-white/5 flex-row items-center gap-4 mb-3 active:bg-white/5"
+                >
+                    <View className="w-10 h-10 bg-muted/10 rounded-full items-center justify-center">
+                        <Calendar size={20} color="#565f89" />
+                    </View>
+                    <View className="flex-1">
+                        <Text className="text-foreground font-bold">Clear History</Text>
+                        <Text className="text-muted-foreground text-xs">Delete all past verification logs</Text>
                     </View>
                 </TouchableOpacity>
 

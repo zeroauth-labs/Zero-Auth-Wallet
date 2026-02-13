@@ -31,6 +31,7 @@ export function parseVerificationQR(data: string): VerificationRequest | null {
             !payload.nonce ||
             !payload.verifier ||
             !payload.verifier.did ||
+            !payload.verifier.callback || // Now required inside verifier
             !payload.required_claims ||
             !Array.isArray(payload.required_claims)
         ) {
@@ -39,7 +40,7 @@ export function parseVerificationQR(data: string): VerificationRequest | null {
         }
 
         // Check expiry
-        const now = Date.now() / 1000;
+        const now = Math.floor(Date.now() / 1000);
         if (payload.expires_at && payload.expires_at < now) {
             console.warn("QR code expired");
             return null;

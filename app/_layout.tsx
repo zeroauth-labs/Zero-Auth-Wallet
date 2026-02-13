@@ -32,6 +32,42 @@ if (!global.TextDecoder) {
   global.TextDecoder = TextDecoder;
 }
 
+// Polyfill for Blob (Fixes snarkjs/ffjavascript issues)
+if (typeof Blob === 'undefined') {
+  // @ts-ignore
+  global.Blob = require('buffer').Blob;
+} else {
+  const NativeBlob = global.Blob;
+  // @ts-ignore
+  global.Blob = function (parts, options) {
+    // If parts contain ArrayBuffer or View, use the buffer-based Blob which is more compatible
+    if (parts && parts.some(p => p instanceof ArrayBuffer || ArrayBuffer.isView(p))) {
+      return new (require('buffer').Blob)(parts, options);
+    }
+    return new NativeBlob(parts, options);
+  };
+  // @ts-ignore
+  global.Blob.prototype = NativeBlob.prototype;
+}
+
+// Polyfill for Buffer
+import { Buffer } from 'buffer';
+if (!global.Buffer) {
+  // @ts-ignore
+  global.Buffer = Buffer;
+}
+
+// Polyfill for process
+if (!global.process) {
+  // @ts-ignore
+  global.process = require('process');
+} else {
+  // @ts-ignore
+  global.process.env = global.process.env || {};
+  // @ts-ignore
+  global.process.browser = true;
+}
+
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {

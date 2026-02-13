@@ -6,6 +6,8 @@ import { BadgeCheck, Check, ShieldAlert, ShieldCheck, X } from 'lucide-react-nat
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as SecureStore from 'expo-secure-store';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 export default function ApproveRequestScreen() {
     const router = useRouter();
@@ -30,22 +32,43 @@ export default function ApproveRequestScreen() {
 
     const handleApprove = async () => {
         if (!matchingCredential) return;
-        setLoading(true);
 
+        // 1. Biometric Gating
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+        if (hasHardware && isEnrolled) {
+            const auth = await LocalAuthentication.authenticateAsync({
+                promptMessage: 'Authenticate to generate ZK Proof',
+                fallbackLabel: 'Use Passcode',
+            });
+            if (!auth.success) return;
+        }
+
+        setLoading(true);
         try {
-            // In a real app, salt is securely retrieved. 
-            // For V1 demo, we generate a fresh one if we can't find it, or use a fixed one.
-            // Since we stored commitments with a salt in verify.tsx but didn't persist the salt itself (oops),
-            // we will use a fixed salt for the *proof generation* to ensure the circuit runs.
-            // In V2: Store salt alongside credential securely.
-            const salt = "123456789";
+            // Retrieve persisted salt
+            const salt = await SecureStore.getItemAsync(`salt_${matchingCredential.id}`);
+            if (!salt) throw new Error("Secure salt missing for this credential");
 
             console.log("Generating proof for:", matchingCredential.id);
             const proof = await generateProof(request!, matchingCredential, salt);
 
-            console.log("✅ Proof Generated:", JSON.stringify(proof, null, 2));
+            // 3. Post Proof to Relay
+            console.log("Submitting proof to:", request!.verifier.callback);
+            const response = await fetch(request!.verifier.callback, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(proof)
+            });
 
-            Alert.alert("Success", "Zero-Knowledge Proof Generated!", [
+            if (!response.ok) {
+                throw new Error(`Failed to submit proof: ${response.statusText}`);
+            }
+
+            console.log("✅ Proof Submitted Successfully");
+
+            Alert.alert("Success", "Verification Complete! Proof submitted to verifier.", [
                 {
                     text: "OK",
                     onPress: () => {

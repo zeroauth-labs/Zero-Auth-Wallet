@@ -23,11 +23,12 @@ The wallet implements private commitments for user attributes.
 
 ## 🚀 Roadmap
 
-### ✅ Phase 1: Foundation (V1 Stable)
+### ✅ Phase 1: Foundation (Stable)
 - On-device key generation (Ed25519) and persistence.
 - Persistent credential storage and session history.
 - QR Protocol parsing for verification requests.
-- "Simulation Mode" for ZK proofs for fast cross-platform deployment.
+- **Local ZK Engine**: Real-time Groth16 proof generation via SnarkJS/Poseidon.
+- **Biometric Gating**: FaceID/Fingerprint enforcement for proof generation.
 
 ### 🟡 Phase 2: Ecosystem (In Progress)
 - **[Relay System](https://github.com/zeroauth-labs/zero-auth-relay)**: A stateless hub for routing proofs between apps and the wallet.
@@ -36,7 +37,6 @@ The wallet implements private commitments for user attributes.
 
 ### 🔴 Phase 3: Production Hardening
 - **Native ZK Engine**: Migration to a C++/Rust native engine for ultra-fast proof generation on mobile.
-- **Biometric Gating**: Enforced FaceID/Fingerprint for every verification request.
 - **Cloud Recovery**: Encrypted backup of credential metadata.
 
 ---

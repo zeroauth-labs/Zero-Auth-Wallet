@@ -1,28 +1,37 @@
-// MOCK IMPLEMENTATION DUE TO INSTALLATION ISSUES
-// import { buildPoseidon } from 'circomlibjs'; // DISABLED
-// import { bigInt } from 'big-integer'; // DISABLED
+import { buildPoseidon } from 'circomlibjs';
+
+let poseidon: any = null;
 
 /**
  * Initializes the Poseidon hash library.
- * No-op for mock.
  */
 export async function initPoseidon() {
-    console.log("Mock Poseidon Initialized");
+    if (poseidon) return;
+    try {
+        poseidon = await buildPoseidon();
+        console.log("Poseidon Initialized");
+    } catch (error) {
+        console.error("Failed to initialize Poseidon:", error);
+    }
 }
 
 /**
- * Computes a MOCK hash of an array of inputs.
- * Returns a simple string concatenation hash for demo purposes.
+ * Computes a Poseidon hash of an array of inputs.
  */
 export function poseidonHash(inputs: (bigint | number | string)[]): string {
-    // Simple deterministic mock hash
-    return "0x" + inputs.map(i => i.toString()).join("").substring(0, 16);
+    if (!poseidon) throw new Error("Poseidon not initialized");
+
+    const bigIntInputs = inputs.map(i => BigInt(i));
+    const hash = poseidon(bigIntInputs);
+    return poseidon.F.toString(hash);
 }
 
 /**
  * Creates a commitment for a specific attribute value.
- * Commitment = MockHash([value, salt])
+ * Commitment = Poseidon([value, salt])
  */
 export function commitAttribute(value: string | number | boolean, salt: string): string {
-    return poseidonHash([value as any, salt]);
+    const val = BigInt(value);
+    const s = BigInt(salt);
+    return poseidonHash([val, s]);
 }

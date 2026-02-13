@@ -2,8 +2,8 @@ import NotificationModal from '@/components/NotificationModal';
 import SessionCard from '@/components/SessionCard';
 import { useAuthStore } from '@/store/auth-store';
 import { useRouter } from 'expo-router';
-import { Bell, QrCode } from 'lucide-react-native';
-import { useState } from 'react';
+import { Bell, QrCode, ShieldCheck, ShieldAlert, BadgeCheck } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -27,28 +27,46 @@ export default function DashboardScreen() {
       <NotificationModal visible={showNotifications} onClose={() => setShowNotifications(false)} />
       <View className="flex-1 px-4">
         {/* Header */}
-        <View className="flex-row justify-between items-center py-4 mb-2">
+        <View className="flex-row justify-between items-center py-4 mb-3">
           <View>
-            <Text className="text-primary font-bold text-sm tracking-wider uppercase">Zero Auth</Text>
-            <Text className="text-foreground text-2xl font-bold">Dashboard</Text>
+            <Text className="text-[#a9b1d6] font-bold text-xs tracking-widest uppercase opacity-70">Secured with ZK</Text>
+            <Text className="text-foreground text-3xl font-bold">Zero Auth</Text>
           </View>
-          <TouchableOpacity onPress={() => setShowNotifications(true)} className="w-10 h-10 rounded-full bg-card items-center justify-center border border-border">
-            <Bell size={20} color="#a9b1d6" />
-            {notifications.length > 0 && <View className="absolute top-2 right-2 w-2 h-2 rounded-full bg-error" />}
+          <TouchableOpacity onPress={() => setShowNotifications(true)} className="w-12 h-12 rounded-2xl bg-[#16161e] items-center justify-center border border-white/10 shadow-sm">
+            <Bell size={22} color="#a9b1d6" />
+            {notifications.length > 0 && <View className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full bg-error border-2 border-[#16161e]" />}
           </TouchableOpacity>
         </View>
 
-        {/* Actions */}
-        <View className="flex-row gap-3 mb-6">
+        {/* Security Health Card */}
+        <View className="bg-card/50 border border-white/5 rounded-3xl p-5 mb-6 flex-row items-center gap-4">
+          <View className="w-12 h-12 rounded-2xl bg-success/10 items-center justify-center border border-success/20">
+            <ShieldCheck size={28} color="#9ece6a" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-white font-bold text-lg">System Secure</Text>
+            <Text className="text-muted-foreground text-xs">Device-bound identity active</Text>
+          </View>
+          <View className="bg-success/20 px-3 py-1.5 rounded-full">
+            <Text className="text-success text-[10px] font-bold uppercase">Healthy</Text>
+          </View>
+        </View>
+
+        {/* Quick Actions */}
+        <View className="flex-row gap-4 mb-8">
           <TouchableOpacity
             onPress={() => router.push('/my-qr')}
-            className="flex-1 bg-primary/10 border border-primary/30 p-4 rounded-xl items-center justify-center flex-row gap-3 active:bg-primary/20"
+            className="flex-1 bg-primary p-5 rounded-3xl items-center justify-center flex-row gap-3 active:opacity-90 shadow-xl shadow-primary/20"
           >
-            <QrCode size={32} color="#7aa2f7" />
-            <View>
-              <Text className="text-foreground font-bold text-lg">My QR Code</Text>
-              <Text className="text-primary text-xs">Show Zero ID</Text>
-            </View>
+            <QrCode size={24} color="#1a1b26" />
+            <Text className="text-[#1a1b26] font-bold text-lg">My Zero ID</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/scanner')}
+            className="w-16 h-16 bg-[#16161e] border border-white/10 rounded-3xl items-center justify-center active:bg-white/5"
+          >
+            <BadgeCheck size={24} color="#7aa2f7" />
           </TouchableOpacity>
         </View>
 

@@ -10,36 +10,7 @@ export default function MyQrModal() {
     const [simulating, setSimulating] = useState(false);
 
     useEffect(() => {
-        // Simulate an incoming scan request after 3 seconds
-        const timer = setTimeout(() => {
-            setSimulating(true);
-            Alert.alert(
-                "Authentication Request",
-                "Service 'AgeCheck.io' is requesting to verify your age (18+). No PII will be shared.",
-                [
-                    {
-                        text: "Reject",
-                        style: "cancel",
-                        onPress: () => router.back()
-                    },
-                    {
-                        text: "Authorize",
-                        onPress: () => {
-                            addSession({
-                                serviceName: 'AgeCheck.io',
-                                type: 'Age Verification',
-                                infoRequested: ['Age > 18'],
-                                serviceIcon: 'shield'
-                            });
-                            router.back();
-                            Alert.alert("Success", "You have successfully authenticated.");
-                        }
-                    }
-                ]
-            );
-        }, 3000);
-
-        return () => clearTimeout(timer);
+        // Real session handling will go here later
     }, []);
 
     return (
