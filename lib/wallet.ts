@@ -1,6 +1,7 @@
 import { ed25519 } from '@noble/curves/ed25519';
 import { bytesToHex } from '@noble/hashes/utils';
 import { decode as fromBase64, encode as toBase64 } from '@stablelib/base64';
+import bs58 from 'bs58';
 import { getRandomValues } from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 
@@ -93,9 +94,20 @@ export async function purgeWallet(): Promise<void> {
 }
 
 /**
- * Derives a did:key from an Ed25519 public key.
+ * Derives a standard did:key from an Ed25519 public key.
+ * Follows the W3C did:key spec:
+ * 1. Prepend multicodec prefix for Ed25519 (0xed, 0x01).
+ * 2. Encode with Base58BTC.
+ * 3. Prepend 'did:key:z'.
  */
 export function deriveDID(publicKey: Uint8Array): string {
-    const hex = bytesToHex(publicKey).substring(0, 16);
-    return `did:key:z6Mk...${hex}`;
+    // Ed25519 multicodec prefix is 0xed01
+    const multicodecPrefix = new Uint8Array([0xed, 0x01]);
+    const bytes = new Uint8Array(multicodecPrefix.length + publicKey.length);
+    bytes.set(multicodecPrefix, 0);
+    bytes.set(publicKey, multicodecPrefix.length);
+
+    // Multibase Base58BTC encoding (prefixed with 'z' for did:key)
+    const encoded = bs58.encode(bytes);
+    return `did:key:z${encoded}`;
 }

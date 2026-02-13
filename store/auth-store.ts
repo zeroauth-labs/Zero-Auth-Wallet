@@ -1,25 +1,33 @@
+import { zustandStorage } from '@/lib/storage';
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type ServiceType = 'Age Verification' | 'Student ID' | 'Email Alternative' | 'Trial access';
 
 export interface Session {
     id: string;
     serviceName: string;
-    serviceIcon?: string; // URL or icon name
-    startTime: number; // Timestamp
-    infoRequested: string[]; // e.g., ["Age > 18", "Full Name"]
+    serviceIcon?: string;
+    startTime: number;
+    infoRequested: string[];
     status: 'active' | 'expired';
     type: ServiceType;
+    verifierDid?: string;
+    nonce?: string;
+    proofSignature?: string;
 }
 
 export interface Credential {
     id: string;
-    issuer: string; // e.g., "Government of India", "University of Mumbai"
-    type: string; // e.g., "Aadhaar", "Student Card"
+    issuer: string;
+    issuerDid?: string;
+    type: string;
     issuedAt: number;
     expiresAt?: number;
     attributes: Record<string, string | boolean | number | undefined>;
+    commitments?: Record<string, string>; // Map of attribute key -> Poseidon commitment
     verified: boolean;
+    revocationId?: string;
 }
 
 export interface Notification {
@@ -35,8 +43,10 @@ export interface AuthState {
     history: Session[];
     credentials: Credential[];
     notifications: Notification[];
+    _hasHydrated: boolean;
 
     // Actions
+    setHasHydrated: (state: boolean) => void;
     addSession: (session: Omit<Session, 'id' | 'startTime' | 'status'>) => void;
     terminateSession: (id: string) => void;
     addCredential: (credential: Credential) => void;
@@ -45,128 +55,113 @@ export interface AuthState {
     clearNotifications: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
-    sessions: [
-        {
-            id: '1',
-            serviceName: 'GambleFi Pro',
-            startTime: Date.now() - 1000 * 60 * 15, // 15 mins ago
-            infoRequested: ['Age > 18'],
-            status: 'active',
-            type: 'Age Verification',
-        },
-        {
-            id: '2',
-            serviceName: 'Adobe Creative Cloud',
-            startTime: Date.now() - 1000 * 60 * 60 * 2, // 2 hours ago
-            infoRequested: ['Student Authorization'],
-            status: 'active',
-            type: 'Student ID',
-        }
-    ],
-    history: [
-        {
-            id: 'old-1',
-            serviceName: 'Cool Software Trial',
-            startTime: Date.now() - 1000 * 60 * 60 * 24 * 2, // 2 days ago
-            infoRequested: ['Trial Access (7 Days)'],
-            status: 'expired',
-            type: 'Trial access',
-        }
-    ],
-    credentials: [
-        {
-            id: 'c1',
-            issuer: 'Government of India',
-            type: 'Aadhaar',
-            issuedAt: Date.now() - 1000 * 60 * 60 * 24 * 365,
-            attributes: {
-                'age_over_18': true,
-                'residency': 'India'
+export const useAuthStore = create<AuthState>()(
+    persist(
+        (set, get) => ({
+            // Start empty — no mocks
+            sessions: [],
+            history: [],
+            credentials: [],
+            notifications: [],
+            _hasHydrated: false,
+
+            setHasHydrated: (state) => {
+                set({ _hasHydrated: state });
             },
-            verified: true,
-            expiresAt: undefined
-        }
-    ],
-    notifications: [],
 
-    addSession: (session) => set((state) => ({
-        sessions: [
-            {
-                ...session,
-                id: Math.random().toString(36).substring(7),
-                startTime: Date.now(),
-                status: 'active'
+            addSession: (session) => set((state) => ({
+                sessions: [
+                    {
+                        ...session,
+                        id: Math.random().toString(36).substring(7),
+                        startTime: Date.now(),
+                        status: 'active'
+                    },
+                    ...state.sessions
+                ]
+            })),
+
+            terminateSession: (id) => {
+                const state = get();
+                const sessionToMove = state.sessions.find(s => s.id === id);
+                if (!sessionToMove) return;
+
+                set((state) => ({
+                    sessions: state.sessions.filter(s => s.id !== id),
+                    history: [{ ...sessionToMove, status: 'expired' }, ...state.history],
+                    notifications: [
+                        {
+                            id: Math.random().toString(36),
+                            title: 'Session Ended',
+                            message: `Access to ${sessionToMove.serviceName} has been revoked.`,
+                            timestamp: Date.now(),
+                            read: false
+                        },
+                        ...state.notifications
+                    ]
+                }));
             },
-            ...state.sessions
-        ]
-    })),
 
-    terminateSession: (id) => {
-        const state = get();
-        const sessionToMove = state.sessions.find(s => s.id === id);
-        if (!sessionToMove) return;
+            addCredential: (credential) => {
+                const state = get();
+                const existing = state.credentials.find(c => c.type === credential.type);
 
-        set((state) => ({
-            sessions: state.sessions.filter(s => s.id !== id),
-            history: [{ ...sessionToMove, status: 'expired' }, ...state.history],
-            notifications: [
-                {
-                    id: Math.random().toString(36),
-                    title: 'Session Ended',
-                    message: `Access to ${sessionToMove.serviceName} has been revoked.`,
-                    timestamp: Date.now(),
-                    read: false
-                },
-                ...state.notifications
-            ]
-        }));
-    },
+                if (existing) {
+                    set((state) => ({
+                        credentials: [
+                            ...state.credentials.filter(c => c.type !== credential.type),
+                            credential
+                        ],
+                        notifications: [
+                            {
+                                id: Math.random().toString(36),
+                                title: 'Credential Updated',
+                                message: `Your ${credential.type} has been updated.`,
+                                timestamp: Date.now(),
+                                read: false
+                            },
+                            ...state.notifications
+                        ]
+                    }));
+                } else {
+                    set((state) => ({
+                        credentials: [...state.credentials, credential]
+                    }));
+                }
+            },
 
-    addCredential: (credential) => {
-        const state = get();
-        const existing = state.credentials.find(c => c.type === credential.type);
+            removeCredential: (id) => set((state) => ({
+                credentials: state.credentials.filter(c => c.id !== id)
+            })),
 
-        if (existing) {
-            set((state) => ({
-                credentials: [
-                    ...state.credentials.filter(c => c.type !== credential.type),
-                    credential
-                ],
+            addNotification: (title, message) => set((state) => ({
                 notifications: [
                     {
                         id: Math.random().toString(36),
-                        title: 'Credential Updated',
-                        message: `Your ${credential.type} has been updated.`,
+                        title,
+                        message,
                         timestamp: Date.now(),
                         read: false
                     },
                     ...state.notifications
                 ]
-            }));
-        } else {
-            set((state) => ({
-                credentials: [...state.credentials, credential]
-            }));
-        }
-    },
+            })),
 
-    removeCredential: (id) => set((state) => ({
-        credentials: state.credentials.filter(c => c.id !== id)
-    })),
-
-    addNotification: (title, message) => set((state) => ({
-        notifications: [
-            {
-                id: Math.random().toString(36),
-                title,
-                message,
-                timestamp: Date.now(),
-                read: false
+            clearNotifications: () => set({ notifications: [] }),
+        }),
+        {
+            name: 'zero-auth-store',
+            storage: createJSONStorage(() => zustandStorage),
+            // Don't persist internal flags
+            partialize: (state) => ({
+                sessions: state.sessions,
+                history: state.history,
+                credentials: state.credentials,
+                notifications: state.notifications,
+            }),
+            onRehydrateStorage: () => (state) => {
+                state?.setHasHydrated(true);
             },
-            ...state.notifications
-        ]
-    })),
-
-    clearNotifications: () => set({ notifications: [] }),
-}));
+        }
+    )
+);

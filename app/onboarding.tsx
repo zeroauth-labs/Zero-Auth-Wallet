@@ -1,8 +1,8 @@
 import { useWalletStore } from '@/store/wallet-store';
 import { useRouter } from 'expo-router';
-import { Lock, ShieldCheck, Snowflake } from 'lucide-react-native';
+import { AlertOctagon, Lock, RotateCcw, ShieldCheck, Snowflake } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,7 +11,8 @@ export default function OnboardingScreen() {
     const initializeWallet = useWalletStore((state) => state.initializeWallet);
     const did = useWalletStore((state) => state.did);
 
-    const [step, setStep] = useState<'welcome' | 'generating' | 'success'>('welcome');
+    const [step, setStep] = useState<'welcome' | 'generating' | 'success' | 'error'>('welcome');
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         // Auto-start generation after slight delay
@@ -25,13 +26,20 @@ export default function OnboardingScreen() {
     }, [step]);
 
     const startGeneration = async () => {
-        await initializeWallet();
-        setStep('success');
+        try {
+            setError(null);
+            await initializeWallet();
+            setStep('success');
 
-        // Navigate after showing success
-        setTimeout(() => {
-            router.replace('/(tabs)');
-        }, 1500);
+            // Navigate after showing success
+            setTimeout(() => {
+                router.replace('/(tabs)');
+            }, 1500);
+        } catch (e: any) {
+            console.error("Onboarding failed:", e);
+            setStep('error');
+            setError("Failed to generate wallet. Please try again.");
+        }
     };
 
     return (
@@ -56,6 +64,24 @@ export default function OnboardingScreen() {
                     <View className="bg-card px-4 py-2 rounded-lg border border-white/5">
                         <Text className="text-[#7aa2f7] font-mono text-xs">Generating Ed25519 Keypair</Text>
                     </View>
+                </Animated.View>
+            )}
+
+            {step === 'error' && (
+                <Animated.View entering={FadeIn} className="items-center px-8">
+                    <View className="w-20 h-20 bg-error/10 rounded-full items-center justify-center mb-6 border border-error/20">
+                        <AlertOctagon size={40} color="#f7768e" />
+                    </View>
+                    <Text className="text-xl font-bold text-foreground mb-2 text-center">Initialization Failed</Text>
+                    <Text className="text-muted-foreground text-center mb-8">{error}</Text>
+
+                    <TouchableOpacity
+                        onPress={() => setStep('welcome')}
+                        className="flex-row items-center gap-2 bg-primary px-6 py-3 rounded-xl"
+                    >
+                        <RotateCcw size={20} color="#1a1b26" />
+                        <Text className="text-[#1a1b26] font-bold">Retry</Text>
+                    </TouchableOpacity>
                 </Animated.View>
             )}
 

@@ -1,12 +1,35 @@
+import { parseVerificationQR } from '@/lib/qr-protocol';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { ScanLine, X } from 'lucide-react-native';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ScannerScreen() {
     const router = useRouter();
     const [permission, requestPermission] = useCameraPermissions();
+    const [scanned, setScanned] = useState(false);
+
+    const handleBarCodeScanned = ({ data }: { data: string }) => {
+        setScanned(true);
+        const request = parseVerificationQR(data);
+
+        if (request) {
+            router.push({
+                pathname: '/approve-request',
+                params: { request: JSON.stringify(request) }
+            });
+            // Reset scan state after a delay or when coming back
+            setTimeout(() => setScanned(false), 2000);
+        } else {
+            Alert.alert(
+                "Invalid QR Code",
+                "This code is not a valid Zero Auth verification request.",
+                [{ text: "OK", onPress: () => setScanned(false) }]
+            );
+        }
+    };
 
     if (!permission) {
         // Camera permissions are still loading.
@@ -30,7 +53,11 @@ export default function ScannerScreen() {
 
     return (
         <View className="flex-1 bg-black">
-            <CameraView style={{ flex: 1 }} facing="back">
+            <CameraView
+                style={{ flex: 1 }}
+                facing="back"
+                onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+            >
                 <SafeAreaView className="flex-1">
                     {/* Overlay UI */}
                     <View className="flex-1 justify-between p-6">

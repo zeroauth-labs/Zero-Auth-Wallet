@@ -55,6 +55,7 @@ export const useWalletStore = create<WalletState>((set) => ({
         } catch (error) {
             console.error("Wallet gen failed:", error);
             set({ isLoading: false });
+            throw error; // Rethrow so UI knows
         }
     },
 

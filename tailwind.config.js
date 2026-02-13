@@ -14,6 +14,7 @@ module.exports = {
         error: '#f7768e',
         card: '#16161e',
         border: '#565f89',
+        'muted-foreground': '#9aa5ce', // Lighter for better visibility
       },
     },
   },

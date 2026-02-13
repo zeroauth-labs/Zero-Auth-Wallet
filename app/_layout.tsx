@@ -6,8 +6,10 @@ import { View } from 'react-native';
 import 'react-native-reanimated';
 import '../global.css';
 // Polyfill for crypto
+import { useAuthStore } from '@/store/auth-store';
 import { useWalletStore } from '@/store/wallet-store';
 import { getRandomValues } from 'expo-crypto';
+// import 'react-native-get-random-values'; // DISABLED
 
 if (!global.crypto) {
   // @ts-ignore
@@ -36,6 +38,7 @@ export default function RootLayout() {
   const checkInitialization = useWalletStore((state) => state.checkInitialization);
   const isInitialized = useWalletStore((state) => state.isInitialized);
   const isLoading = useWalletStore((state) => state.isLoading);
+  const hasHydrated = useAuthStore((state) => state._hasHydrated);
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
 
@@ -45,14 +48,14 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (!isReady || isLoading) return;
+    if (!isReady || isLoading || !hasHydrated) return;
 
     if (!isInitialized) {
       router.replace('/onboarding');
     }
-  }, [isReady, isLoading, isInitialized]);
+  }, [isReady, isLoading, isInitialized, hasHydrated]);
 
-  if (!isReady) {
+  if (!isReady || !hasHydrated) {
     return null;
   }
 

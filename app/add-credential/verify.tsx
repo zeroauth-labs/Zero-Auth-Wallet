@@ -1,3 +1,4 @@
+import { commitAttribute, initPoseidon } from '@/lib/hashing';
 import { useAuthStore } from '@/store/auth-store';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ShieldCheck } from 'lucide-react-native';
@@ -13,6 +14,9 @@ export default function VerifyScreen() {
     const [step, setStep] = useState(0); // 0: Fetching, 1: Verifying ZK, 2: Success
 
     useEffect(() => {
+        // Init crypto
+        initPoseidon();
+
         // Phase 1: Fetching
         const t1 = setTimeout(() => setStep(1), 2000);
 
@@ -20,22 +24,36 @@ export default function VerifyScreen() {
         const t2 = setTimeout(() => {
             setStep(2);
 
+            // Generate commitments
+            const salt = Math.random().toString(36).substring(2);
+            const attributes = category === 'university' ? {
+                'is_student': true,
+                'university': issuerName,
+                'graduation_year': '2027',
+                'department': 'Computer Science'
+            } : {
+                'age_over_18': true,
+                'residency': 'India'
+            };
+
+            const commitments: Record<string, string> = {};
+            try {
+                Object.entries(attributes).forEach(([key, value]) => {
+                    commitments[key] = commitAttribute(value as any, salt);
+                });
+            } catch (e) {
+                console.error("Commitment failed", e);
+            }
+
             // Success Action
             addCredential({
                 id: Math.random().toString(36),
                 issuer: issuerName,
-                type: category === 'university' ? 'Student ID' : 'Government ID',
+                type: category === 'university' ? 'Student ID' : 'Age Verification',
                 issuedAt: Date.now(),
                 verified: true,
-                attributes: category === 'university' ? {
-                    'is_student': true,
-                    'university': issuerName,
-                    'graduation_year': '2027',
-                    'department': 'Computer Science'
-                } : {
-                    'age_over_18': true,
-                    'residency': 'India'
-                }
+                attributes,
+                commitments
             });
 
         }, 4500);

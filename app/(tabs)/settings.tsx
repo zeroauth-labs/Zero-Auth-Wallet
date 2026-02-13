@@ -103,7 +103,7 @@ export default function SettingsScreen() {
                     <Info size={14} color="#94a3b8" />
                     <Text className="text-slate-400 font-bold">Zero Auth Wallet</Text>
                 </View>
-                <Text className="text-slate-500 text-xs">Version 0.0.4 (Dev)</Text>
+                <Text className="text-slate-500 text-xs">Version 0.0.5 (Dev)</Text>
             </View>
         </SafeAreaView>
     );
