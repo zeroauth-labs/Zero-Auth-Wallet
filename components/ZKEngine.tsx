@@ -85,8 +85,9 @@ export const ZKProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
       console.log(`[ZKEngine v2] Request: ${type} (${id})`);
       if (status !== 'initializing' && status !== 'error' && webViewRef.current) {
-        console.log(`[ZKEngine] Posting message to WebView: ${id}`);
-        webViewRef.current.postMessage(JSON.stringify(request));
+        console.log(`[ZKEngine] Calling Bridge: ${id}`);
+        const callCode = `window.zkBridgeExecute('${JSON.stringify(request)}'); true;`;
+        webViewRef.current.injectJavaScript(callCode);
       } else {
         reject(new Error(`ZK Engine not ready (Status: ${status})`));
       }
@@ -118,96 +119,83 @@ export const ZKProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }
   };
 
-  /* New approach: Sequential Injection via injectJavaScript to avoid HTML size limits */
-  const injectScripts = (webview: WebView) => {
-    // 1. Inject Error Trapping & Console Forwarding
-    webview.injectJavaScript(`
-        window.onerror = function(message, source, lineno, colno, error) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'LOG', 
-            payload: 'WebView Error: ' + message + ' at ' + lineno + ':' + colno
-          }));
-        };
-        const oldLog = console.log;
-        console.log = (...args) => {
-           oldLog(...args);
-           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'LOG', payload: args.join(' ') }));
-        };
-        console.log("WebView Error Handlers Injected");
-        true;
-      `);
+  // Injection logic
+  const injectScripts = () => {
+    if (!webViewRef.current || !injectedJS.snarkjs) return;
 
-    // 2. Inject SnarkJS
-    webview.injectJavaScript(`
+    console.log('[ZKEngine] Triggering Script Injection...');
+
+    const bridgeCode = `
+      // 1. Error Trapping & Console Forwarding
+      window.onerror = function(message, source, lineno, colno, error) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'LOG', 
+          payload: 'WebView Error: ' + message + ' at ' + lineno + ':' + colno
+        }));
+      };
+      const oldLog = console.log;
+      console.log = (...args) => {
+         oldLog(...args);
+         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'LOG', payload: args.join(' ') }));
+      };
+
+      // 2. Global Bridge Function (Direct Call)
+      window.zkBridgeExecute = async (requestStr) => {
         try {
-            ${injectedJS.snarkjs}
-            console.log("SnarkJS Injected. Type: " + typeof snarkjs);
-        } catch (e) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'LOG', payload: "SnarkJS Injection Failed: " + e }));
+          const { id, type, payload } = JSON.parse(requestStr);
+          console.log("Bridge Executing: " + type + " (" + id + ")");
+          
+          if (type === 'POSEIDON_HASH') {
+            if (typeof poseidon === 'undefined') throw new Error('Poseidon library not loaded');
+            const inputs = payload.map((i) => BigInt(i));
+            const hash = poseidon(inputs);
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              id, type: 'RESULT', payload: hash.toString()
+            }));
+          } else if (type === 'GENERATE_PROOF') {
+            if (typeof snarkjs === 'undefined') throw new Error('SnarkJS library not loaded');
+            const { inputs, wasmB64, zkeyB64 } = payload;
+            const wasm = Uint8Array.from(atob(wasmB64), c => c.charCodeAt(0));
+            const zkey = Uint8Array.from(atob(zkeyB64), c => c.charCodeAt(0));
+
+            console.log('Starting Groth16 Proof...');
+            const { proof, publicSignals } = await snarkjs.groth16.fullProve(inputs, wasm, zkey);
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              id, type: 'RESULT', payload: { proof, publicSignals }
+            }));
+          }
+        } catch (err) {
+          console.log("Bridge Error: " + err.toString());
+          try {
+            const { id } = JSON.parse(requestStr);
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              id, type: 'ERROR', payload: err.toString()
+            }));
+          } catch(e) {}
         }
-        true;
-      `);
+      };
 
-    // 3. Inject Poseidon
-    webview.injectJavaScript(`
-        try {
-            ${injectedJS.poseidon}
-            console.log("Poseidon Injected. Type: " + typeof poseidon);
-        } catch (e) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'LOG', payload: "Poseidon Injection Failed: " + e }));
-        }
-        true;
-      `);
+      // 3. Inject Libraries
+      try {
+        ${injectedJS.snarkjs}
+        ${injectedJS.poseidon}
+        console.log("Libraries Loaded. snarkjs: " + typeof snarkjs + ", poseidon: " + typeof poseidon);
+        console.log("ZK Engine Fully Ready (v5)");
+      } catch (e) {
+        console.log("Library Injection Failed: " + e.toString());
+      }
+      true;
+    `;
 
-    // 4. Inject Bridge Logic
-    webview.injectJavaScript(`
-        window.addEventListener('message', async (event) => {
-             console.log("Received Message: " + event.data);
-             try {
-                 const { id, type, payload } = JSON.parse(event.data);
-                 
-                 if (type === 'POSEIDON_HASH') {
-                     if (typeof poseidon === 'undefined') throw new Error('Poseidon library not loaded');
-                     const inputs = payload.map((i) => BigInt(i));
-                     const hash = poseidon(inputs);
-                     window.ReactNativeWebView.postMessage(JSON.stringify({
-                       id, type: 'RESULT', payload: hash.toString()
-                     }));
-                 } else if (type === 'GENERATE_PROOF') {
-                     if (typeof snarkjs === 'undefined') throw new Error('SnarkJS library not loaded');
-                     const { inputs, wasmB64, zkeyB64 } = payload;
-                     const wasm = Uint8Array.from(atob(wasmB64), c => c.charCodeAt(0));
-                     const zkey = Uint8Array.from(atob(zkeyB64), c => c.charCodeAt(0));
-
-                     console.log('Starting Groth16 Proof...');
-                     const { proof, publicSignals } = await snarkjs.groth16.fullProve(inputs, wasm, zkey);
-
-                     window.ReactNativeWebView.postMessage(JSON.stringify({
-                       id, type: 'RESULT', payload: { proof, publicSignals }
-                     }));
-                 }
-             } catch (err) {
-                 console.log("Processing Error: " + err.toString());
-                 const data = JSON.parse(event.data);
-                 if (data && data.id) {
-                     window.ReactNativeWebView.postMessage(JSON.stringify({
-                         id: data.id, type: 'ERROR', payload: err.toString()
-                     }));
-                 }
-             }
-        });
-        
-        // Final Ready Check
-        setTimeout(() => {
-             if (typeof snarkjs !== 'undefined' && typeof poseidon !== 'undefined') {
-                 console.log("ZK Engine Fully Ready");
-             } else {
-                 console.log("ZK Engine Missing Libs");
-             }
-        }, 500);
-        true;
-      `);
+    webViewRef.current.injectJavaScript(bridgeCode);
   };
+
+  // Trigger injection when EITHER assets or webview is ready
+  useEffect(() => {
+    if (status === 'ready' && webViewRef.current) {
+      injectScripts();
+    }
+  }, [status, injectedJS.snarkjs]);
 
   const html = `
     <!DOCTYPE html>
@@ -215,7 +203,9 @@ export const ZKProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="background: transparent;"></body>
+      <body style="background: #1a1b26;">
+         <h1 style="color: grey; font-size: 8px;">ZK: ${status}</h1>
+      </body>
     </html>
   `;
 
@@ -229,10 +219,8 @@ export const ZKProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           source={{ html }}
           onMessage={handleMessage}
           onLoad={() => {
-            console.log('[ZKEngine] WebView Loaded');
-            if (injectedJS.snarkjs && webViewRef.current) {
-              injectScripts(webViewRef.current);
-            }
+            console.log('[ZKEngine] WebView Component onLoad');
+            if (status === 'ready') injectScripts();
           }}
           javaScriptEnabled={true}
           domStorageEnabled={true}
