@@ -1,4 +1,4 @@
-import { commitAttribute, initPoseidon } from '@/lib/hashing';
+import { commitAttribute } from '@/lib/hashing';
 import { useAuthStore } from '@/store/auth-store';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BadgeCheck, Check, Fingerprint, Hash, ShieldCheck, X } from 'lucide-react-native';

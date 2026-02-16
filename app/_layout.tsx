@@ -40,9 +40,12 @@ if (typeof Blob === 'undefined') {
   const NativeBlob = global.Blob;
   // @ts-ignore
   global.Blob = function (parts, options) {
-    // If parts contain ArrayBuffer or View, use the buffer-based Blob which is more compatible
-    if (parts && parts.some(p => p instanceof ArrayBuffer || ArrayBuffer.isView(p))) {
-      return new (require('buffer').Blob)(parts, options);
+    // If parts contain ArrayBuffer or View, use the buffer-based Blob which is more compatible if available
+    if (parts && parts.some((p: any) => p instanceof ArrayBuffer || ArrayBuffer.isView(p))) {
+      const BufferBlob = require('buffer').Blob;
+      if (BufferBlob) {
+        return new BufferBlob(parts, options);
+      }
     }
     return new NativeBlob(parts, options);
   };
@@ -70,6 +73,8 @@ if (!global.process) {
 
 SplashScreen.preventAutoHideAsync();
 
+import { ZKProvider } from '@/components/ZKEngine';
+
 export default function RootLayout() {
   const checkInitialization = useWalletStore((state) => state.checkInitialization);
   const isInitialized = useWalletStore((state) => state.isInitialized);
@@ -96,12 +101,14 @@ export default function RootLayout() {
   }
 
   return (
-    <View className="flex-1 bg-[#1a1b26]">
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
-        <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
-      </Stack>
-    </View>
+    <ZKProvider>
+      <View className="flex-1 bg-[#1a1b26]">
+        <StatusBar style="light" />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
+          <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+        </Stack>
+      </View>
+    </ZKProvider>
   );
 }

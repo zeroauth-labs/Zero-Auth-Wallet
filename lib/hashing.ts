@@ -1,37 +1,17 @@
-import { buildPoseidon } from 'circomlibjs';
-
-let poseidon: any = null;
 
 /**
- * Initializes the Poseidon hash library.
+ * Computes a Poseidon hash of an array of inputs via the ZK Bridge.
  */
-export async function initPoseidon() {
-    if (poseidon) return;
-    try {
-        poseidon = await buildPoseidon();
-        console.log("Poseidon Initialized");
-    } catch (error) {
-        console.error("Failed to initialize Poseidon:", error);
-    }
+export async function poseidonHash(engine: any, inputs: (bigint | number | string)[]): Promise<string> {
+    return engine.execute('POSEIDON_HASH', inputs.map(i => i.toString()));
 }
 
 /**
- * Computes a Poseidon hash of an array of inputs.
+ * Creates a commitment for specific attribute value(s) via the ZK Bridge.
+ * Commitment = Poseidon([val1, val2, ..., salt])
  */
-export function poseidonHash(inputs: (bigint | number | string)[]): string {
-    if (!poseidon) throw new Error("Poseidon not initialized");
-
-    const bigIntInputs = inputs.map(i => BigInt(i));
-    const hash = poseidon(bigIntInputs);
-    return poseidon.F.toString(hash);
-}
-
-/**
- * Creates a commitment for a specific attribute value.
- * Commitment = Poseidon([value, salt])
- */
-export function commitAttribute(value: string | number | boolean, salt: string): string {
-    const val = BigInt(value);
-    const s = BigInt(salt);
-    return poseidonHash([val, s]);
+export async function commitAttribute(engine: any, value: string | number | boolean | (string | number | boolean)[], salt: string): Promise<string> {
+    const values = Array.isArray(value) ? value : [value];
+    const inputs = [...values, salt];
+    return poseidonHash(engine, inputs.map(i => i.toString()));
 }

@@ -27,6 +27,9 @@ function CredentialCard({ credential, onRevokeRequest }: { credential: Credentia
                 <View>
                     <Text className="text-[#565f89] text-xs uppercase font-bold tracking-widest mb-1">{credential.issuer}</Text>
                     <Text className="text-foreground text-xl font-bold">{displayType}</Text>
+                    <Text className="text-[#565f89] text-[10px] mt-1 italic">
+                        Issued: {new Date(credential.issuedAt).toLocaleDateString()}
+                    </Text>
                 </View>
                 {credential.verified && (
                     <View className="bg-success/20 px-2 py-1 rounded flex-row items-center gap-1">

@@ -17,7 +17,8 @@ config.resolver.extraNodeModules = {
 };
 
 // Asset extensions for ZK artifacts
-config.resolver.assetExts.push('wasm', 'zkey');
+config.resolver.assetExts.push('wasm', 'zkey', 'bundle');
+config.resolver.sourceExts = config.resolver.sourceExts.filter(ext => ext !== 'bundle');
 
 // Robust Mocks using resolveRequest
 // Intercept Node.js built-ins that snarkjs incorrectly assumes are available

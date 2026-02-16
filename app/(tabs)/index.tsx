@@ -2,7 +2,7 @@ import NotificationModal from '@/components/NotificationModal';
 import SessionCard from '@/components/SessionCard';
 import { useAuthStore } from '@/store/auth-store';
 import { useRouter } from 'expo-router';
-import { Bell, QrCode, ShieldCheck, ShieldAlert, BadgeCheck } from 'lucide-react-native';
+import { Bell, QrCode, ShieldCheck, ShieldAlert, BadgeCheck, Shield } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,10 +32,15 @@ export default function DashboardScreen() {
             <Text className="text-[#a9b1d6] font-bold text-xs tracking-widest uppercase opacity-70">Secured with ZK</Text>
             <Text className="text-foreground text-3xl font-bold">Zero Auth</Text>
           </View>
-          <TouchableOpacity onPress={() => setShowNotifications(true)} className="w-12 h-12 rounded-2xl bg-[#16161e] items-center justify-center border border-white/10 shadow-sm">
-            <Bell size={22} color="#a9b1d6" />
-            {notifications.length > 0 && <View className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full bg-error border-2 border-[#16161e]" />}
-          </TouchableOpacity>
+          <View className="flex-row gap-3">
+            <TouchableOpacity onPress={() => router.push('/settings')} className="w-12 h-12 rounded-2xl bg-[#16161e] items-center justify-center border border-white/10 shadow-sm">
+              <Shield size={22} color="#a9b1d6" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowNotifications(true)} className="w-12 h-12 rounded-2xl bg-[#16161e] items-center justify-center border border-white/10 shadow-sm">
+              <Bell size={22} color="#a9b1d6" />
+              {notifications.length > 0 && <View className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full bg-error border-2 border-[#16161e]" />}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Security Health Card */}
@@ -69,6 +74,17 @@ export default function DashboardScreen() {
             <BadgeCheck size={24} color="#7aa2f7" />
           </TouchableOpacity>
         </View>
+
+        {/* Demo Seed Button (Production UX refinement) */}
+        {useAuthStore.getState().credentials.length === 0 && (
+          <TouchableOpacity
+            onPress={() => useAuthStore.getState().seedDemoData()}
+            className="bg-success/10 border border-success/20 p-5 rounded-3xl items-center justify-center mb-8"
+          >
+            <Text className="text-success font-bold text-base mb-1">Testing Zero Auth?</Text>
+            <Text className="text-success/70 text-xs">Tap to seed your vault with demo credentials</Text>
+          </TouchableOpacity>
+        )}
 
         <Text className="text-foreground text-lg font-bold mb-3">Active Sessions</Text>
 

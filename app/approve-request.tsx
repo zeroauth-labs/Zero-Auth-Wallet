@@ -9,11 +9,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 
+import { useZKEngine } from '@/components/ZKEngine';
+
 export default function ApproveRequestScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const [request, setRequest] = useState<VerificationRequest | null>(null);
     const [loading, setLoading] = useState(false);
+    const zkEngine = useZKEngine();
 
     // Get credentials to find a match
     const credentials = useAuthStore((state) => state.credentials);
@@ -33,16 +36,19 @@ export default function ApproveRequestScreen() {
     const handleApprove = async () => {
         if (!matchingCredential) return;
 
-        // 1. Biometric Gating
-        const hasHardware = await LocalAuthentication.hasHardwareAsync();
-        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        // 1. Authenticate (Biometric Gate) - Respect User Preference
+        const biometricsEnabled = useAuthStore.getState().biometricsEnabled;
 
-        if (hasHardware && isEnrolled) {
+        if (biometricsEnabled) {
             const auth = await LocalAuthentication.authenticateAsync({
-                promptMessage: 'Authenticate to generate ZK Proof',
-                fallbackLabel: 'Use Passcode',
+                promptMessage: 'Confirm identity to generate ZK proof',
+                fallbackLabel: 'Enter Passcode',
             });
-            if (!auth.success) return;
+
+            if (!auth.success) {
+                setLoading(false);
+                return;
+            }
         }
 
         setLoading(true);
@@ -52,7 +58,7 @@ export default function ApproveRequestScreen() {
             if (!salt) throw new Error("Secure salt missing for this credential");
 
             console.log("Generating proof for:", matchingCredential.id);
-            const proof = await generateProof(request!, matchingCredential, salt);
+            const proof = await generateProof(zkEngine, request!, matchingCredential, salt);
 
             // 3. Post Proof to Relay
             console.log("Submitting proof to:", request!.verifier.callback);
@@ -74,6 +80,8 @@ export default function ApproveRequestScreen() {
                     onPress: () => {
                         // Add to session history
                         useAuthStore.getState().addSession({
+                            remoteId: request?.session_id || '',
+                            callbackUrl: request?.verifier.callback || '',
                             serviceName: request?.verifier.name || 'Unknown Verifier',
                             type: request?.credential_type as any,
                             infoRequested: request?.required_claims || [],
@@ -146,8 +154,11 @@ export default function ApproveRequestScreen() {
 
                 {/* Privacy Note */}
                 <View className="bg-primary/5 p-4 rounded-xl border border-primary/10">
-                    <Text className="text-primary text-xs text-center">
+                    <Text className="text-primary text-xs text-center font-medium">
                         Zero Auth will generate a Zero-Knowledge Proof. {request.verifier.name} will NOT receive your raw data.
+                    </Text>
+                    <Text className="text-[#565f89] text-[9px] text-center mt-1">
+                        Circuit: {request.credential_type} ZK-v1
                     </Text>
                 </View>
             </View>

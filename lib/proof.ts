@@ -1,59 +1,47 @@
 import { Credential } from '@/store/auth-store';
 import { VerificationRequest } from './qr-protocol';
-// import { groth16 } from 'snarkjs'; // Moved to lazy-import inside generateProof
 import { Asset } from 'expo-asset';
 import { commitAttribute } from './hashing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+import { ZKProofPayload } from './zk-bridge-types';
 
-export interface ProofPayload {
-    pi_a: string[];
-    pi_b: string[][];
-    pi_c: string[];
-    protocol: string;
-    curve: string;
-    publicSignals: string[];
-}
+// Simple in-memory cache for circuit assets
+const assetCache: Record<string, { wasmB64: string, zkeyB64: string }> = {};
 
 /**
- * Generates a Zero-Knowledge Proof for the Age Verification circuit.
+ * Generates a Zero-Knowledge Proof for specified circuits via the ZK Bridge.
  */
 export async function generateProof(
+    engine: any,
     request: VerificationRequest,
     credential: Credential,
     salt: string
-): Promise<ProofPayload> {
+): Promise<ZKProofPayload> {
 
-    console.log("Loading ZK engine...");
-    const { groth16 } = require('snarkjs');
-    console.log("Starting REAL ZK proof generation...");
+    console.log(`Preparing ZK Bridge Proof Generation for: ${request.credential_type}`);
+    const cacheKey = request.credential_type;
 
-    const currentYear = new Date().getFullYear();
-    const minAge = 18;
-
-    const birthYearAttribute = credential.attributes['birth_year'] || credential.attributes['year_of_birth'];
-    if (!birthYearAttribute) {
-        // FALLBACK for demo if birth_year is missing (e.g. from government docs flow)
-        // In production, issuance MUST include birth_year
-        console.warn("Credential missing birth_year, using dummy value for demo");
+    if (assetCache[cacheKey]) {
+        console.log(`[Cache] Using pre-loaded assets for: ${cacheKey}`);
+        const { wasmB64, zkeyB64 } = assetCache[cacheKey];
+        const inputs = await prepareInputs(request, credential, salt, engine);
+        return performProof(engine, inputs, wasmB64, zkeyB64);
     }
 
-    const birthYear = Number(birthYearAttribute || 2000);
+    const t0 = Date.now();
+    let inputs: any = await prepareInputs(request, credential, salt, engine);
+    let wasmAsset: Asset;
+    let zkeyAsset: Asset;
 
-    // Re-calculate commitment to ensure validity
-    const commitment = commitAttribute(birthYear, salt);
-
-    // Inputs matching the circuit
-    const inputs = {
-        currentYear: currentYear,
-        minAge: minAge,
-        birthYear: birthYear,
-        salt: salt,
-        commitment: commitment
-    };
-
-    // Load Circuit Assets
-    const wasmAsset = Asset.fromModule(require('../circuits/age_check_js/age_check.wasm'));
-    const zkeyAsset = Asset.fromModule(require('../circuits/age_check_final.zkey'));
+    if (request.credential_type === 'Age Verification') {
+        wasmAsset = Asset.fromModule(require('../circuits/age_check_js/age_check.wasm'));
+        zkeyAsset = Asset.fromModule(require('../circuits/age_check_final.zkey'));
+    } else if (request.credential_type === 'Student ID') {
+        wasmAsset = Asset.fromModule(require('../circuits/student_check_js/student_check.wasm'));
+        zkeyAsset = Asset.fromModule(require('../circuits/student_check_final.zkey'));
+    } else {
+        throw new Error(`Unsupported credential type: ${request.credential_type}`);
+    }
 
     await Promise.all([wasmAsset.downloadAsync(), zkeyAsset.downloadAsync()]);
 
@@ -61,27 +49,56 @@ export async function generateProof(
         throw new Error("Failed to load circuit assets");
     }
 
-    // Read assets as base64 and convert to Uint8Array/Buffer
-    // This is necessary because snarkjs in a 'browser' env (mocked fs) cannot read file paths directly.
-    console.log("Reading circuit assets into memory...");
     const wasmB64 = await FileSystem.readAsStringAsync(wasmAsset.localUri, { encoding: 'base64' });
     const zkeyB64 = await FileSystem.readAsStringAsync(zkeyAsset.localUri, { encoding: 'base64' });
 
-    // Create Uint8Array from base64 (Buffer polyfill handles this)
-    const wasmBuffer = new Uint8Array(Buffer.from(wasmB64, 'base64'));
-    const zkeyBuffer = new Uint8Array(Buffer.from(zkeyB64, 'base64'));
+    // Cache the assets
+    assetCache[cacheKey] = { wasmB64, zkeyB64 };
+    console.log(`[Cache] Assets loaded and cached for ${cacheKey} in ${Date.now() - t0}ms`);
 
-    console.log(`Assets loaded. WASM: ${wasmBuffer.length} bytes, ZKey: ${zkeyBuffer.length} bytes`);
+    return performProof(engine, inputs, wasmB64, zkeyB64);
+}
 
-    // Generate Proof
-    console.log("Computing Witness & Proof...");
-    const { proof, publicSignals } = await groth16.fullProve(
+async function prepareInputs(request: VerificationRequest, credential: Credential, salt: string, engine: any) {
+    const currentYear = new Date().getFullYear();
+    if (request.credential_type === 'Age Verification') {
+        const birthYearAttribute = credential.attributes['birth_year'] || credential.attributes['year_of_birth'];
+        const birthYear = Number(birthYearAttribute || 2000);
+        const commitment = await commitAttribute(engine, birthYear, salt);
+        return {
+            currentYear: currentYear,
+            minAge: 18,
+            birthYear: birthYear,
+            salt: salt,
+            commitment: commitment
+        };
+    } else if (request.credential_type === 'Student ID') {
+        const isStudent = 1;
+        const expiryYearAttribute = credential.attributes['expiry_year'] || credential.attributes['expires_at_year'];
+        const expiryYear = Number(expiryYearAttribute || currentYear + 1);
+        const commitment = await commitAttribute(engine, [isStudent, expiryYear], salt);
+        return {
+            currentYear: currentYear,
+            isStudent: isStudent,
+            expiryYear: expiryYear,
+            salt: salt,
+            commitment: commitment
+        };
+    }
+    throw new Error(`Inputs not defined for: ${request.credential_type}`);
+}
+
+async function performProof(engine: any, inputs: any, wasmB64: string, zkeyB64: string): Promise<ZKProofPayload> {
+    console.log("Sending proof request to ZK WebView bridge...");
+
+    // Usage matches BridgeRequest['type'] = 'GENERATE_PROOF'
+    const { proof, publicSignals } = await engine.execute('GENERATE_PROOF', {
         inputs,
-        wasmBuffer,
-        zkeyBuffer
-    );
+        wasmB64,
+        zkeyB64
+    });
 
-    console.log("Proof Generated Successfully!");
+    console.log("Proof Received from Bridge Successfully!");
 
     return {
         pi_a: proof.pi_a,
