@@ -170,6 +170,11 @@ export const useAuthStore = create<AuthState>()(
             clearHistory: () => set({ history: [] }),
 
             seedDemoData: async () => {
+                // Clear existing demo credentials to prevent type conflicts (e.g. Identity vs Age Verification)
+                set((state) => ({
+                    credentials: state.credentials.filter(c => !c.id.startsWith('demo-'))
+                }));
+
                 const demoCredentials: Credential[] = [
                     {
                         id: 'demo-age',
