@@ -173,7 +173,7 @@ export const useAuthStore = create<AuthState>()(
                 const demoCredentials: Credential[] = [
                     {
                         id: 'demo-age',
-                        type: 'Identity',
+                        type: 'Age Verification', // Matches SDK default
                         issuer: 'Zero Auth Demo',
                         issuedAt: Date.now(),
                         verified: true,
@@ -200,8 +200,8 @@ export const useAuthStore = create<AuthState>()(
                 // If this is a web environment, you'll need to replace this with a web-compatible storage.
                 for (const cred of demoCredentials) {
                     const salt = Math.floor(Math.random() * 1000000).toString();
-                    const cleanType = cred.type.replace(/\s+/g, '_').toLowerCase();
-                    await SecureStore.setItemAsync(`salt_${cleanType}`, salt);
+                    // Use ID for consistency with verify.tsx/approve-request.tsx
+                    await SecureStore.setItemAsync(`salt_${cred.id}`, salt);
                 }
 
                 set({ credentials: demoCredentials });

@@ -36,7 +36,7 @@ export default function VerifyScreen() {
                 setCurrentStep(1);
                 const saltBytes = new Uint8Array(32);
                 getRandomValues(saltBytes);
-                const salt = Buffer.from(saltBytes).toString('hex');
+                const salt = '0x' + Buffer.from(saltBytes).toString('hex');
                 await new Promise(r => setTimeout(r, 800));
 
                 // Step 2: Compute Commitment
