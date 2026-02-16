@@ -6,14 +6,17 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View, TouchableOpacity } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { getRandomValues } from 'expo-crypto';
+import { useZKEngine } from '@/components/ZKEngine';
 
 export default function VerifyScreen() {
     const router = useRouter();
-    const { issuerName, category, issuerId } = useLocalSearchParams<{ issuerName: string, category: string, issuerId: string }>();
+    const params = useLocalSearchParams<{ issuerName: string, category: string, issuerId: string, idNumber: string }>();
+    const { issuerName, category, issuerId } = params;
     const addCredential = useAuthStore((state) => state.addCredential);
 
     const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
     const [currentStep, setCurrentStep] = useState(0);
+    const zkEngine = useZKEngine();
 
     const steps = [
         { label: 'Hashing attributes', icon: Hash },
@@ -25,8 +28,6 @@ export default function VerifyScreen() {
     useEffect(() => {
         const runVerification = async () => {
             try {
-                initPoseidon();
-
                 // Step 0: Hash attributes
                 setCurrentStep(0);
                 await new Promise(r => setTimeout(r, 1200));
@@ -40,8 +41,12 @@ export default function VerifyScreen() {
 
                 // Step 2: Compute Commitment
                 setCurrentStep(2);
-                const birthYear = 2005; // Mock for demo
-                const commitment = commitAttribute(birthYear, salt);
+                // Step 2: Compute Commitment
+                setCurrentStep(2);
+                const birthYearValue = params.idNumber || '2005';
+                const birthYear = Number(birthYearValue.split('/').pop()); // Extract year if DD/MM/YYYY
+
+                const commitment = await commitAttribute(zkEngine, birthYear, salt);
                 await new Promise(r => setTimeout(r, 1500));
 
                 // Step 3: Secure
